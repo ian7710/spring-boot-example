@@ -1,9 +1,10 @@
-package main.java.com.example.service;
+package com.example.service;
 
 import com.example.dto.UserDTO;
 import com.example.entity.User;
 import com.example.exception.UserNotFoundException;
 import com.example.repository.UserRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +21,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     @Override
     @Cacheable("users")
@@ -42,6 +46,10 @@ public class UserServiceImpl implements UserService {
     public CompletableFuture<UserDTO> createUser(UserDTO userDTO) {
         User user = convertToEntity(userDTO);
         user = userRepository.save(user);
+
+        // Send a message to RabbitMQ
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.ROUTING_KEY, "User created: " + user.getId());
+
         return CompletableFuture.completedFuture(convertToDTO(user));
     }
 
